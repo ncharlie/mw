@@ -75,7 +75,6 @@ export class ReplayScene extends BattleBase {
     this.bindButtons('replay-speed', 'replay-skip'); // A = speed up, B = skip
     this.events.once('shutdown', () => {
       $('replay-panel').hidden = true;
-      $('help').hidden = false;
       /** @type {HTMLButtonElement} */ ($('replay-speed')).onclick = null;
       /** @type {HTMLButtonElement} */ ($('replay-skip')).onclick = null;
     });
@@ -84,7 +83,6 @@ export class ReplayScene extends BattleBase {
 
   setupPanel() {
     $('replay-panel').hidden = false;
-    $('help').hidden = true;
     const speedBtn = /** @type {HTMLButtonElement} */ ($('replay-speed'));
     const skipBtn = /** @type {HTMLButtonElement} */ ($('replay-skip'));
     speedBtn.disabled = false;

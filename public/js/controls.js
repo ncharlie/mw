@@ -4,6 +4,7 @@
 //   A      Space                         |  A button: talk, confirm, accept
 //   B      Escape                        |  B button: back, close, dismiss
 //   Party  P                             |  menu icon (top right)
+//   Fullscreen                           |  fullscreen button (top right corner)
 //   Zoom   - / + or mouse wheel          |  pinch (handled by the world scene)
 //
 // A and B go to whatever is in front: a message box first, then the top menu,
@@ -11,7 +12,7 @@
 // do for them; anything without a B handler just closes on B.
 
 import { $, isDialogOpen, closeDialog, topModal, closeTopModal } from './ui.js';
-import { isTouch, goFullscreenLandscape } from './view.js';
+import { hasTouch, fullscreenSupported, isFullscreen, toggleFullscreen } from './view.js';
 
 /** @typedef {import('/shared/world.js').Dir} Dir */
 /** @typedef {{ a?: () => void, b?: () => void }} Actions */
@@ -231,8 +232,16 @@ for (const [id, button] of /** @type {const} */ ([['btn-a', 'a'], ['btn-b', 'b']
 }
 $('btn-menu').addEventListener('click', () => worldActions?.menu?.());
 
-if (isTouch) {
-  document.body.classList.add('touch');
-  // The first touch after loading asks for fullscreen landscape (it needs a user gesture).
-  window.addEventListener('pointerdown', () => goFullscreenLandscape(), { once: true, capture: true });
-}
+// Fullscreen toggle, like a video player's; entering it also turns to landscape where allowed.
+const fullscreenBtn = $('btn-fullscreen');
+fullscreenBtn.hidden = !fullscreenSupported();
+fullscreenBtn.addEventListener('click', () => toggleFullscreen());
+const showFullscreenState = () => document.body.classList.toggle('fullscreen', isFullscreen());
+document.addEventListener('fullscreenchange', showFullscreenState);
+document.addEventListener('webkitfullscreenchange', showFullscreenState);
+
+// Touch mode: on for any touch screen, and switched on by the first finger touch in any case.
+if (hasTouch) document.body.classList.add('touch');
+window.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'touch') document.body.classList.add('touch');
+}, { capture: true });

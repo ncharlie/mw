@@ -92,7 +92,6 @@ export function updateWallet(self) {
 /** @param {boolean} visible */
 export function showHud(visible) {
   $('hud').hidden = !visible;
-  $('help').hidden = !visible;
 }
 
 /**

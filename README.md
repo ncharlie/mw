@@ -108,6 +108,7 @@ client is served by Socket.IO at `/socket.io/socket.io.js`.
   | A: talk, confirm, accept | Space | A button |
   | B: back, close, decline | Esc | B button |
   | Party | P (or the HUD button) | menu icon, top right |
+  | Fullscreen | (browser's own) | toggle button, top-right corner |
   | Zoom | `-` / `+`, mouse wheel | pinch |
 
   A quick tap of a direction turns on the spot; holding walks. A and B go to
@@ -122,10 +123,13 @@ client is served by Socket.IO at `/socket.io/socket.io.js`.
   `MIN_TILES` / `MAX_TILES` in `public/js/WorldScene.js`.
 - **Screen:** the canvas fills the window at device resolution (up to 2x);
   battle screens scale to fit above their buttons.
-- **Phones and tablets:** touch controls appear automatically. Logging in (or
-  the first tap) asks for fullscreen landscape; Android Chrome allows it, iPhone
-  Safari doesn't, so in portrait a "turn your device sideways" screen shows
-  instead. Adding the page to the home screen opens it fullscreen in landscape
+- **Phones and tablets:** the canvas is the whole screen and every control is
+  laid over it. Touch controls turn on for any touch screen, and on the first
+  finger touch in any case. The button in the top-right corner toggles
+  fullscreen like a video player's; entering fullscreen also turns to landscape
+  where the browser allows it (Android Chrome does; iPhone Safari has no
+  fullscreen for web pages, so the button is hidden there). Adding the page to
+  the home screen opens it fullscreen in landscape
   (`public/manifest.webmanifest`).
 - **First login:** pick a starter from the five species; you also get 10
   shackles and 50 coins (`shared/rules.js`). Players from older saves without

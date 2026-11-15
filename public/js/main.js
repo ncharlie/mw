@@ -7,7 +7,7 @@ import { setPvpSocket } from './pvpMenus.js';
 import { showHud, closeDialog, closeModal, updateWallet } from './ui.js';
 import { setSocket, setSelf, showStarter, openShop } from './menus.js';
 import { releaseAll } from './controls.js';
-import { DPR, canvasSize, goFullscreenLandscape } from './view.js';
+import { DPR, canvasSize } from './view.js';
 
 /* global Phaser, io */
 
@@ -62,7 +62,6 @@ function showLogin(message = '') {
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  goFullscreenLandscape(); // phones: needs this tap, so ask now
 
   const button = /** @type {HTMLButtonElement} */ (form.querySelector('button'));
   button.disabled = true;

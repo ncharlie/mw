@@ -58,7 +58,6 @@ export class WildScene extends BattleBase {
     this.bindButtons('battle-throw', 'battle-run'); // A = throw a shackle, B = run
     this.events.once('shutdown', () => {
       $('battle-panel').hidden = true;
-      $('help').hidden = false;
       /** @type {HTMLButtonElement} */ ($('battle-throw')).onclick = null;
       /** @type {HTMLButtonElement} */ ($('battle-run')).onclick = null;
     });
@@ -100,7 +99,6 @@ export class WildScene extends BattleBase {
 
   setupPanel() {
     $('battle-panel').hidden = false;
-    $('help').hidden = true; // the panel sits where the controls hint is
     const throwBtn = /** @type {HTMLButtonElement} */ ($('battle-throw'));
     const runBtn = /** @type {HTMLButtonElement} */ ($('battle-run'));
     throwBtn.onclick = () => {
