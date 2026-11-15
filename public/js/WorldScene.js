@@ -3,64 +3,55 @@
 // every step and sends a 'correct' message if it disagrees.
 
 import {
-  getWorld, tileAt, isWalkable, DIRS, STEP_MS, TILE_SIZE, WORLD_W, WORLD_H, VIEW_W, VIEW_H,
-  BUILDINGS, BOT_NPC, T,
+  getWorld, tileAt, isWalkable, DIRS, STEP_MS, TILE_SIZE, WORLD_W, WORLD_H, BUILDINGS, BOT_NPC, T,
 } from '/shared/world.js';
 import {
   createTextures, tileFrame, characterTexture, characterFrame, colorsForName, BOT_COLORS,
 } from './art.js';
 import {
-  $, isDialogOpen, closeDialog, showDialog, updateHud, isBlocked, isModalOpen, closeTopModal, closeModal,
+  $, isDialogOpen, closeDialog, showDialog, updateHud, isBlocked, isModalOpen, closeModal,
 } from './ui.js';
 import { toggleParty } from './menus.js';
 import { showChallenge, hideChallenge, showOrder, hideOrder, opponentLockedIn } from './pvpMenus.js';
+import {
+  heldDirection, pendingTap, clearTap, releaseAll, setWorldActions,
+} from './controls.js';
+import { TEXT_RES } from './view.js';
 
-/** Screen pixels per art pixel. */
-export const ZOOM = 3;
 const S = TILE_SIZE;
 /** A tap shorter than this only turns the player; holding longer walks. */
 const TURN_MS = 110;
 
 /**
- * Camera zoom steps for the world view. ZOOM (the first) is the normal
- * 15 x 11 tile window; each step out shows more of the map, and the last one
- * fits the whole 80 x 80 world. Zoom only changes what this player sees.
+ * Zoom is set by how many tiles fit across the screen, so it means the same on
+ * a phone and a wide monitor. Zoom only changes what this player sees.
  */
-const ZOOM_LEVELS = [ZOOM, 2, 1, 0.5];
-const ZOOM_KEY = 'monworld.zoom';
-/** Ignore extra wheel events for this long after a zoom step (trackpads send many). */
-const WHEEL_COOLDOWN_MS = 180;
+export const MIN_TILES = 20; // most zoomed in
+export const MAX_TILES = 45; // most zoomed out
+const DEFAULT_TILES = MIN_TILES;
+const ZOOM_KEY = 'monworld.tilesWide';
 
-/** The zoom step this browser used last time (a per-viewer convenience). */
-function loadZoomIndex() {
+/** The zoom this browser used last time (a per-viewer convenience). */
+function loadTiles() {
   try {
-    const i = Number(localStorage.getItem(ZOOM_KEY));
-    return Number.isInteger(i) && i >= 0 && i < ZOOM_LEVELS.length ? i : 0;
+    const n = Number(localStorage.getItem(ZOOM_KEY));
+    return n >= MIN_TILES && n <= MAX_TILES ? n : DEFAULT_TILES;
   } catch {
-    return 0;
+    return DEFAULT_TILES;
   }
 }
 
-/** @param {number} i */
-function saveZoomIndex(i) {
+/** @param {number} n */
+function saveTiles(n) {
   try {
-    localStorage.setItem(ZOOM_KEY, String(i));
+    localStorage.setItem(ZOOM_KEY, String(Math.round(n * 100) / 100));
   } catch {
     /* storage blocked: zoom just isn't remembered */
   }
 }
 
-/** @type {Record<string, import('/shared/world.js').Dir>} */
-const KEY_DIRS = {
-  ArrowUp: 'up', KeyW: 'up',
-  ArrowDown: 'down', KeyS: 'down',
-  ArrowLeft: 'left', KeyA: 'left',
-  ArrowRight: 'right', KeyD: 'right',
-};
-const INTERACT_KEYS = new Set(['KeyE', 'Enter', 'NumpadEnter']);
-const CLOSE_KEYS = new Set(['KeyE', 'Enter', 'NumpadEnter', 'Space', 'Escape']);
-const ZOOM_OUT_KEYS = new Set(['Minus', 'NumpadSubtract']);
-const ZOOM_IN_KEYS = new Set(['Equal', 'NumpadAdd']); // "=" is the "+" key without shift
+/** @param {TouchList} t */
+const touchDistance = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
 
 /**
  * @typedef {object} Character
@@ -114,13 +105,17 @@ export class WorldScene extends Phaser.Scene {
     for (const p of this.welcome.players) this.addOther(p);
 
     const cam = this.cameras.main;
-    this.zoomIndex = loadZoomIndex();
-    cam.setZoom(ZOOM_LEVELS[this.zoomIndex]);
+    this.tilesWide = loadTiles();
+    this.applyZoom();
     cam.startFollow(this.me.sprite, true);
     cam.setBackgroundColor('#1d4424');
+    const onResize = () => this.applyZoom();
+    this.scale.on('resize', onResize);
+    this.events.once('shutdown', () => this.scale.off('resize', onResize));
 
     this.setupInput();
     this.refreshHud();
+    document.body.classList.add('playing');
     this.ready = true;
   }
 
@@ -128,9 +123,8 @@ export class WorldScene extends Phaser.Scene {
 
   drawWorld() {
     // Endless forest beyond the edge, so the camera can stay centred on the player.
-    // Wide enough for the furthest zoom-out with the player at the very edge.
-    const minZoom = Math.min(...ZOOM_LEVELS);
-    const pad = Math.ceil((Math.max(VIEW_W, VIEW_H) * ZOOM) / minZoom / 2) + 2;
+    // Big enough for the furthest zoom-out, even on a tall window (up to 2.5:1).
+    const pad = Math.ceil((MAX_TILES * 2.5) / 2) + 2;
     this.add
       .tileSprite(-pad * S, -pad * S, (WORLD_W + pad * 2) * S, (WORLD_H + pad * 2) * S, 'tree-tile')
       .setOrigin(0)
@@ -166,7 +160,7 @@ export class WorldScene extends Phaser.Scene {
         color: '#ffffff',
         stroke: '#22202a',
         strokeThickness: 2,
-        resolution: ZOOM,
+        resolution: TEXT_RES,
       })
       .setOrigin(0.5, 1)
       .setDepth(5);
@@ -343,8 +337,7 @@ export class WorldScene extends Phaser.Scene {
   /** A challenge or match is starting: stop walking and close other menus. */
   beginMatch() {
     this.inBattle = true;
-    this.held = [];
-    this.tapped = null;
+    releaseAll();
     closeDialog();
     closeModal('shop');
     closeModal('party');
@@ -360,8 +353,7 @@ export class WorldScene extends Phaser.Scene {
   /** The player closed the result screen. */
   endMatch() {
     this.inBattle = false;
-    this.held = [];
-    this.tapped = null;
+    releaseAll();
     this.socket.emit('pvpDone');
     this.cameras.main.fadeIn(250, 0, 0, 0);
   }
@@ -371,8 +363,7 @@ export class WorldScene extends Phaser.Scene {
   /** @param {any} start the 'wildStart' payload */
   startBattle(start) {
     this.inBattle = true;
-    this.held = [];
-    this.tapped = null;
+    releaseAll();
     this.battlePending = [];
     closeDialog();
     // A quick white flash, then the battle screen takes over the canvas.
@@ -392,85 +383,81 @@ export class WorldScene extends Phaser.Scene {
     this.inBattle = false;
     this.battleScene = null;
     this.battlePending = [];
-    this.held = [];
-    this.tapped = null;
+    releaseAll();
     this.cameras.main.fadeIn(250, 0, 0, 0);
   }
 
   // ------------------------------------------------------------ input and movement
 
   setupInput() {
-    /** Directions currently held, most recent last. @type {import('/shared/world.js').Dir[]} */
-    this.held = [];
-    /** A key pressed since the last check. @type {import('/shared/world.js').Dir | null} */
-    this.tapped = null;
     this.turnUntil = 0;
     this.lastStepEnd = -1000;
+    releaseAll();
 
-    const onDown = (/** @type {KeyboardEvent} */ e) => {
-      if (e.code === 'Escape') {
-        if (!closeTopModal() && isDialogOpen()) closeDialog();
-        return;
-      }
-      const target = e.target;
-      // Typing in a menu field, or pressing a focused menu button: leave it to the browser.
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
-        || target instanceof HTMLSelectElement) return;
-      if (target instanceof HTMLButtonElement && INTERACT_KEYS.has(e.code)) return;
+    // Keyboard and touch buttons come through controls.js; this is what they do here.
+    setWorldActions({
+      a: () => this.interact(),
+      menu: () => this.openPartyMenu(),
+      zoom: (factor) => this.setTiles(this.tilesWide * factor, true),
+    });
+    /** @type {HTMLButtonElement} */ ($('hud-party')).onclick = () => this.openPartyMenu();
 
-      const dir = KEY_DIRS[e.code];
-      if (dir) {
-        e.preventDefault();
-        if (!this.held.includes(dir)) this.held.push(dir);
-        this.tapped = dir; // remembered even if released before the next frame
-        return;
-      }
-      if (e.code === 'KeyP') {
-        if (!e.repeat) this.openPartyMenu();
-        return;
-      }
-      // By key position or by the character typed, so other keyboard layouts work too.
-      const zoomOut = ZOOM_OUT_KEYS.has(e.code) || e.key === '-';
-      const zoomIn = ZOOM_IN_KEYS.has(e.code) || e.key === '+' || e.key === '=';
-      if (zoomOut || zoomIn) {
-        e.preventDefault();
-        if (!e.repeat && !isBlocked()) this.changeZoom(zoomOut ? 1 : -1);
-        return;
-      }
-      if (!CLOSE_KEYS.has(e.code)) return;
-      e.preventDefault();
-      if (e.repeat) return;
-      if (isDialogOpen()) closeDialog();
-      else if (INTERACT_KEYS.has(e.code)) this.interact();
-    };
-    // Mouse wheel / trackpad over the map: scroll down zooms out, up zooms in.
-    let lastWheel = 0;
+    // Mouse wheel / trackpad: scroll down to zoom out. Smooth on trackpads, a step per notch on wheels.
     this.input.on('wheel', (/** @type {any} */ _p, /** @type {any} */ _o, /** @type {number} */ _dx, /** @type {number} */ dy) => {
-      const now = this.time.now;
-      if (dy === 0 || isBlocked() || now - lastWheel < WHEEL_COOLDOWN_MS) return;
-      lastWheel = now;
-      this.changeZoom(dy > 0 ? 1 : -1);
+      if (dy === 0 || isBlocked() || this.inBattle) return;
+      const clamped = Math.max(-100, Math.min(100, dy));
+      this.setTiles(this.tilesWide * Math.exp(clamped * 0.002));
     });
-    /** @type {HTMLButtonElement} */ ($('hud-party')).onclick = (e) => {
-      this.openPartyMenu();
-      /** @type {HTMLElement} */ (e.currentTarget).blur();
+
+    // Two fingers on the map: pinch to zoom.
+    const canvas = this.game.canvas;
+    /** @type {{ dist: number, tiles: number } | null} */
+    let pinch = null;
+    const onTouchStart = (/** @type {TouchEvent} */ e) => {
+      if (e.targetTouches.length === 2) pinch = { dist: touchDistance(e.targetTouches), tiles: this.tilesWide };
     };
-    const onUp = (/** @type {KeyboardEvent} */ e) => {
-      const dir = KEY_DIRS[e.code];
-      if (dir) this.held = this.held.filter((d) => d !== dir);
+    const onTouchMove = (/** @type {TouchEvent} */ e) => {
+      if (!pinch || e.targetTouches.length !== 2) return;
+      e.preventDefault();
+      if (isBlocked() || this.inBattle) return;
+      // Fingers closer together = see more tiles.
+      this.setTiles((pinch.tiles * pinch.dist) / Math.max(1, touchDistance(e.targetTouches)));
     };
-    const onBlur = () => {
-      this.held = [];
-      this.tapped = null;
+    const onTouchEnd = (/** @type {TouchEvent} */ e) => {
+      if (e.targetTouches.length < 2) pinch = null;
     };
-    window.addEventListener('keydown', onDown);
-    window.addEventListener('keyup', onUp);
-    window.addEventListener('blur', onBlur);
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd);
+    canvas.addEventListener('touchcancel', onTouchEnd);
     this.events.once('shutdown', () => {
-      window.removeEventListener('keydown', onDown);
-      window.removeEventListener('keyup', onUp);
-      window.removeEventListener('blur', onBlur);
+      setWorldActions(null);
+      document.body.classList.remove('playing');
+      canvas.removeEventListener('touchstart', onTouchStart);
+      canvas.removeEventListener('touchmove', onTouchMove);
+      canvas.removeEventListener('touchend', onTouchEnd);
+      canvas.removeEventListener('touchcancel', onTouchEnd);
     });
+  }
+
+  /** Camera zoom that fits `tilesWide` tiles across the canvas. */
+  applyZoom() {
+    this.cameras.main.setZoom(this.scale.width / (this.tilesWide * S));
+  }
+
+  /**
+   * Zoom so that `n` tiles fit across the screen (clamped to 20..45).
+   * @param {number} n
+   * @param {boolean} [animate] glide there (keys); pinch and wheel follow the fingers directly
+   */
+  setTiles(n, animate = false) {
+    const tiles = Math.max(MIN_TILES, Math.min(MAX_TILES, n));
+    if (tiles === this.tilesWide) return;
+    this.tilesWide = tiles;
+    const zoom = this.scale.width / (tiles * S);
+    if (animate) this.cameras.main.zoomTo(zoom, 150, 'Sine.easeInOut', true);
+    else this.cameras.main.setZoom(zoom);
+    saveTiles(tiles);
   }
 
   interact() {
@@ -485,47 +472,36 @@ export class WorldScene extends Phaser.Scene {
   }
 
   update() {
-    // Name labels keep the same size on screen at any zoom, so they stay readable.
-    const labelScale = ZOOM / this.cameras.main.zoom;
+    // Name labels are part of the map, so they shrink and grow with the zoom.
     for (const ch of [this.me, this.bot, ...this.others.values()]) {
-      ch.label.setPosition(ch.sprite.x, ch.sprite.y - S / 2 - 1).setScale(labelScale);
+      ch.label.setPosition(ch.sprite.x, ch.sprite.y - S / 2 - 1);
     }
     this.handleInput();
   }
 
-  /** Step the camera zoom in (-1) or out (+1). @param {number} step */
-  changeZoom(step) {
-    if (this.inBattle) return;
-    const next = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, this.zoomIndex + step));
-    if (next === this.zoomIndex) return;
-    this.zoomIndex = next;
-    this.cameras.main.zoomTo(ZOOM_LEVELS[next], 200, 'Sine.easeInOut', true);
-    saveZoomIndex(next);
-  }
-
-  /** Decide whether to turn or step, based on the keys held right now. */
+  /** Decide whether to turn or step, based on the keys / joystick held right now. */
   handleInput() {
     const me = this.me;
     if (me.tween) return;
     if (isBlocked() || this.inBattle) {
-      this.tapped = null;
+      clearTap();
       return;
     }
-    const heldDir = this.held[this.held.length - 1];
-    const dir = heldDir ?? this.tapped;
+    const heldDir = heldDirection();
+    const dir = heldDir ?? pendingTap();
     if (!dir) return;
     const now = this.time.now;
     const stillWalking = now - this.lastStepEnd < 60;
 
     // From standing still, a new direction first turns the player on the spot.
     if (dir !== me.dir && !stillWalking) {
-      this.tapped = null;
+      clearTap();
       this.face(dir);
       this.turnUntil = now + TURN_MS;
       return;
     }
     if (heldDir && now < this.turnUntil) return;
-    this.tapped = null;
+    clearTap();
 
     const nx = me.x + DIRS[dir].dx;
     const ny = me.y + DIRS[dir].dy;

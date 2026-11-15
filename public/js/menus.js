@@ -6,6 +6,7 @@ import { SPECIES, SPECIES_IDS, PARTY_SIZE } from '/shared/mons.js';
 import { MAX_BUY } from '/shared/rules.js';
 import { monImage, shackleImage } from './monArt.js';
 import { $, el, openModal, closeModal, isModalOpen, hpBar } from './ui.js';
+import { setModalActions } from './controls.js';
 
 /** @typedef {import('/shared/mons.js').Mon} Mon */
 /** @typedef {{ coins: number, shackles: number, party: Mon[], storage: Mon[] }} Self */
@@ -63,6 +64,9 @@ export function showStarter() {
   openModal('starter');
 }
 
+// A confirms the picked starter (picking is by tap / click).
+setModalActions('starter', { a: () => /** @type {HTMLButtonElement} */ ($('starter-confirm')).click() });
+
 $('starter-confirm').addEventListener('click', () => {
   if (!starterPick) return;
   socket.emit('chooseStarter', { species: starterPick }, (/** @type {any} */ res) => {
@@ -109,6 +113,8 @@ $('shop-more').addEventListener('click', () => {
 });
 qtyInput.addEventListener('input', renderShop);
 $('shop-close').addEventListener('click', () => closeModal('shop'));
+// A buys, B closes (the default for menus).
+setModalActions('shop', { a: () => /** @type {HTMLButtonElement} */ ($('shop-buy')).click() });
 $('shop-buy').addEventListener('click', () => {
   const qty = quantity();
   socket.emit('buy', { qty }, (/** @type {any} */ res) => {

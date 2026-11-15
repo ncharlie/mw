@@ -12,7 +12,7 @@ Needs Node.js 20 or newer.
 
 ```bash
 npm install
-npm start          # http://localhost:3000
+npm start          # http://localhost:3100
 npm test           # node --test
 ```
 
@@ -66,7 +66,7 @@ shared/        imported by both server and browser, served at /shared
   rules.js     economy and other tunables (prices, rewards, encounter rate)
   rng.js       seeded random numbers
 public/        the client
-  index.html   canvas + HTML overlays (login, HUD, message box, menus, battle buttons)
+  index.html   canvas + HTML overlays (login, HUD, message box, menus, battle buttons, touch controls)
   js/main.js   login -> socket -> Phaser game
   js/WorldScene.js   the world scene: tilemap, camera, players, input
   js/BattleBase.js   what both battle screens share: arena, HP boxes, attack/faint animations
@@ -77,6 +77,8 @@ public/        the client
   js/art.js    world pixel art (tiles, buildings, characters)
   js/monArt.js Mon and shackle pixel art (plain canvas)
   js/ui.js     overlay helpers
+  js/controls.js     keyboard + touch controls, A / B routing
+  js/view.js   pixel density, touch detection, fullscreen
   lab.html     Battle Lab dev page (js/lab.js)
 test/          node --test
 data/save.json created on first run
@@ -97,17 +99,38 @@ client is served by Socket.IO at `/socket.io/socket.io.js`.
   next tile from where the server thinks the player is, that it is walkable, and
   that the player isn't stepping faster than allowed. If not, it sends
   `correct` and the client snaps back.
-- **Controls:** arrow keys or WASD. A quick tap turns on the spot; holding
-  walks. E or Enter interacts with what you are facing (a door, the bot) and
-  closes message boxes. P (or the HUD button) opens the party menu; Escape
-  closes menus. `-` / `+` (or the mouse wheel) zoom the map out and back in:
-  the default shows 15 x 11 tiles, the furthest step shows the whole world.
-  Zoom is per viewer (remembered in localStorage) and doesn't affect the game.
-  The steps are `ZOOM_LEVELS` in `public/js/WorldScene.js`.
+- **Controls** (all in `public/js/controls.js`). Keyboard and touch share
+  one layout, modelled on a joystick plus two buttons:
+
+  | | Keyboard | Touch |
+  |---|---|---|
+  | Move | WASD (arrow keys also work) | joystick: put your thumb anywhere on the left side |
+  | A: talk, confirm, accept | Space | A button |
+  | B: back, close, decline | Esc | B button |
+  | Party | P (or the HUD button) | menu icon, top right |
+  | Zoom | `-` / `+`, mouse wheel | pinch |
+
+  A quick tap of a direction turns on the spot; holding walks. A and B go to
+  whatever is in front: a message box, then a menu (A buys in the shop, accepts
+  a challenge, locks in your lineup...), then a battle (wild: A throws a
+  shackle, B runs; replay: A speeds up, B skips), then the world (A talks to
+  what you face).
+- **Zoom** is set by how many tiles fit across the screen: 20 (closest, the
+  default) to 45 (furthest), so it means the same on any screen. Name labels
+  are part of the map and shrink as you zoom out. Zoom is per viewer
+  (remembered in localStorage) and doesn't affect the game. Limits:
+  `MIN_TILES` / `MAX_TILES` in `public/js/WorldScene.js`.
+- **Screen:** the canvas fills the window at device resolution (up to 2x);
+  battle screens scale to fit above their buttons.
+- **Phones and tablets:** touch controls appear automatically. Logging in (or
+  the first tap) asks for fullscreen landscape; Android Chrome allows it, iPhone
+  Safari doesn't, so in portrait a "turn your device sideways" screen shows
+  instead. Adding the page to the home screen opens it fullscreen in landscape
+  (`public/manifest.webmanifest`).
 - **First login:** pick a starter from the five species; you also get 10
   shackles and 50 coins (`shared/rules.js`). Players from older saves without
   Mons get the same choice.
-- **Buildings:** face a door and press E. Hospital: free full heal of the party.
+- **Buildings:** face a door and press A. Hospital: free full heal of the party.
   Shop: shackles for 10 coins each (you must be standing at the shop door to
   buy). Houses: nobody is home.
 - **Wild battles:** each step onto tall grass outside town has a 10% chance to
@@ -121,7 +144,7 @@ client is served by Socket.IO at `/socket.io/socket.io.js`.
   HP damage stays until you heal.
 - **Party:** up to 5 Mons in order (slot 1 leads) plus unlimited storage. In
   the menu, click two Mons to swap them, or use Store / To party.
-- **PvP:** stand next to another player, face them and press E. They get 20 s
+- **PvP:** stand next to another player, face them and press A. They get 20 s
   to accept or decline (the challenger can cancel). Both players need at least
   3 Mons in their party (`PVP_TEAM_SIZE` in `shared/rules.js`). Nobody busy (in
   a wild battle, a match or a pending challenge) can be challenged.
@@ -142,7 +165,7 @@ client is served by Socket.IO at `/socket.io/socket.io.js`.
     times!"). Nothing about the result changes; it's only how it is shown.
     Each pair, from entering to leaving, plays in under 5 seconds.
   - Leaving during the ordering phase cancels the match for both, no wins.
-- **Bot:** face the bot in town and press E. It always accepts, with 3 fresh
+- **Bot:** face the bot in town and press A. It always accepts, with 3 fresh
   random Mons in random order, and uses the same ordering screen, battle code
   and replay. You need 3 Mons in your party for it too. Beating it counts as a
   win.
@@ -188,7 +211,7 @@ Battle events (also the replay format):
 
 ### Battle Lab
 
-Open http://localhost:3000/lab.html for a dev page that shows the species,
+Open http://localhost:3100/lab.html for a dev page that shows the species,
 simulates seeded matches between random teams with a round-by-round log, and
 prints a win-rate table for every species matchup. Handy after changing numbers.
 

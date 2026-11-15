@@ -33,7 +33,7 @@ const SPEEDS = [1, 3];
 
 export class ReplayScene extends BattleBase {
   constructor() {
-    super('replay', 'replay-msg');
+    super('replay', 'replay-panel', 'replay-msg');
   }
 
   /** @param {{ world: any, result: MatchResult }} data */
@@ -71,6 +71,8 @@ export class ReplayScene extends BattleBase {
     this.updateScore();
 
     this.setupPanel();
+    this.fitCamera();
+    this.bindButtons('replay-speed', 'replay-skip'); // A = speed up, B = skip
     this.events.once('shutdown', () => {
       $('replay-panel').hidden = true;
       $('help').hidden = false;

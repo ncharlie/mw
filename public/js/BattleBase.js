@@ -9,13 +9,14 @@ import { SPECIES } from '/shared/mons.js';
 import { characterTexture, characterFrame } from './art.js';
 import { monCanvas, shackleCanvas } from './monArt.js';
 import { $ } from './ui.js';
-import { ZOOM } from './WorldScene.js';
+import { DPR, TEXT_RES } from './view.js';
+import { setSceneActions, releaseAll } from './controls.js';
 
-/** The battle screen is the same size as the world view: 240 x 176 art pixels. */
+/** The arena is 240 x 176 art pixels, scaled to fit the screen above the button panel. */
 export const W = 240;
 export const H = 176;
 export const INK = 0x2b2a33;
-export const TEXT = { fontFamily: 'monospace', fontStyle: 'bold', color: '#22202a', resolution: ZOOM };
+export const TEXT = { fontFamily: 'monospace', fontStyle: 'bold', color: '#22202a', resolution: TEXT_RES };
 
 /** @param {string} species */
 export const speciesName = (species) => SPECIES[/** @type {import('/shared/mons.js').SpeciesId} */ (species)].name;
@@ -74,9 +75,14 @@ export class InfoBox {
 }
 
 export class BattleBase extends Phaser.Scene {
-  /** @param {string} key @param {string} msgId the HTML element that shows battle messages */
-  constructor(key, msgId) {
+  /**
+   * @param {string} key
+   * @param {string} panelId the HTML button panel under the arena
+   * @param {string} msgId the HTML element in it that shows battle messages
+   */
+  constructor(key, panelId, msgId) {
     super(key);
+    this.panelId = panelId;
     this.msgId = msgId;
   }
 
@@ -93,23 +99,62 @@ export class BattleBase extends Phaser.Scene {
       if (!this.textures.exists(`mon-${id}`)) this.textures.addCanvas(`mon-${id}`, monCanvas(/** @type {any} */ (id)));
     }
     if (!this.textures.exists('shackle')) this.textures.addCanvas('shackle', shackleCanvas());
-    this.cameras.main.setZoom(ZOOM).centerOn(W / 2, H / 2);
+
+    const onResize = () => this.fitCamera();
+    this.scale.on('resize', onResize);
+    releaseAll();
+    document.body.classList.add('in-battle');
     this.events.once('shutdown', () => {
       this.alive = false;
+      this.scale.off('resize', onResize);
+      setSceneActions(null);
+      document.body.classList.remove('in-battle');
     });
 
+    // Sky and grass reach well past the arena, so wide or tall screens have no empty bars.
     const g = this.add.graphics();
-    g.fillStyle(0xa8dcff).fillRect(0, 0, W, 50);
-    g.fillStyle(0xc4e8ff).fillRect(0, 50, W, 50);
-    g.fillStyle(0x9ed38a).fillEllipse(50, 96, 190, 50).fillEllipse(205, 98, 200, 44);
-    g.fillStyle(0x8fd16a).fillRect(0, 92, W, H - 92);
+    g.fillStyle(0x92d0fb).fillRect(-W * 3, -H * 3, W * 7, H * 3);
+    g.fillStyle(0xa8dcff).fillRect(-W * 3, 0, W * 7, 50);
+    g.fillStyle(0xc4e8ff).fillRect(-W * 3, 50, W * 7, 50);
+    g.fillStyle(0x9ed38a).fillEllipse(-90, 98, 200, 40).fillEllipse(50, 96, 190, 50)
+      .fillEllipse(205, 98, 200, 44).fillEllipse(340, 97, 210, 46);
+    g.fillStyle(0x8fd16a).fillRect(-W * 3, 92, W * 7, H * 4);
     g.fillStyle(0x78bb57); // a few grass tufts, always in the same places
-    for (let i = 0; i < 40; i++) g.fillRect((i * 53) % W, 96 + ((i * 37) % (H - 100)), 2, 1);
+    for (let i = 0; i < 160; i++) g.fillRect(((i * 53) % (W * 3)) - W, 96 + ((i * 37) % (H - 100)), 2, 1);
     // the two platforms: near-left for the player's side, far-right for the other side
     g.fillStyle(0x6fb455).fillEllipse(68, 142, 110, 22);
     g.fillStyle(0x5ea347).fillEllipse(68, 144, 96, 14);
     g.fillStyle(0x6fb455).fillEllipse(186, 108, 92, 18);
     g.fillStyle(0x5ea347).fillEllipse(186, 110, 78, 11);
+  }
+
+  /**
+   * Scale the arena to fill the screen above the HTML button panel, centred.
+   * Call after the panel is shown, and on every resize.
+   */
+  fitCamera() {
+    const cam = this.cameras.main;
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const panel = document.getElementById(this.panelId);
+    const panelTop = panel && !panel.hidden ? panel.getBoundingClientRect().top - 8 : window.innerHeight;
+    const free = Math.max(h * 0.4, panelTop * DPR); // game pixels above the panel
+    const zoom = Math.min(w / W, free / H);
+    cam.setZoom(zoom);
+    // Put the arena in the middle of the free area; the camera centre is half a screen below the view's top.
+    const viewTop = -(free / zoom - H) / 2;
+    cam.centerOn(W / 2, viewTop + h / zoom / 2);
+  }
+
+  /**
+   * What A and B do on this screen (they press the panel's buttons).
+   * @param {string} aButtonId @param {string} bButtonId
+   */
+  bindButtons(aButtonId, bButtonId) {
+    setSceneActions({
+      a: () => /** @type {HTMLButtonElement} */ ($(aButtonId)).click(),
+      b: () => /** @type {HTMLButtonElement} */ ($(bButtonId)).click(),
+    });
   }
 
   /**

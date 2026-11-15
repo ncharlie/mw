@@ -1,12 +1,13 @@
 // Client entry point: login screen -> Socket.IO connection -> Phaser game.
 
-import { VIEW_W, VIEW_H, TILE_SIZE } from '/shared/world.js';
-import { WorldScene, ZOOM } from './WorldScene.js';
+import { WorldScene } from './WorldScene.js';
 import { WildScene } from './WildScene.js';
 import { ReplayScene } from './ReplayScene.js';
 import { setPvpSocket } from './pvpMenus.js';
 import { showHud, closeDialog, closeModal, updateWallet } from './ui.js';
 import { setSocket, setSelf, showStarter, openShop } from './menus.js';
+import { releaseAll } from './controls.js';
+import { DPR, canvasSize, goFullscreenLandscape } from './view.js';
 
 /* global Phaser, io */
 
@@ -49,6 +50,8 @@ let game = null;
 
 function showLogin(message = '') {
   stopGame();
+  releaseAll();
+  document.body.classList.remove('playing', 'in-battle');
   showHud(false);
   closeDialog();
   for (const id of ['starter', 'shop', 'party', 'challenge', 'order', 'result']) closeModal(id);
@@ -59,6 +62,8 @@ function showLogin(message = '') {
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
+  goFullscreenLandscape(); // phones: needs this tap, so ask now
+
   const button = /** @type {HTMLButtonElement} */ (form.querySelector('button'));
   button.disabled = true;
   errorEl.textContent = '';
@@ -125,15 +130,16 @@ function connect(token) {
 /** @param {{socket: any, welcome: any}} data */
 function startWorld(data) {
   if (!game) {
+    // The canvas fills the window at device resolution and is shown at CSS size
+    // (zoom 1/DPR). Scenes decide how much of the world fits (see WorldScene zoom).
     game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: 'game',
-      width: VIEW_W * TILE_SIZE * ZOOM,
-      height: VIEW_H * TILE_SIZE * ZOOM,
+      ...canvasSize(),
       pixelArt: true,
       backgroundColor: '#15161c',
       audio: { noAudio: true }, // no sound in v1
-      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      scale: { mode: Phaser.Scale.NONE, zoom: 1 / DPR },
     });
     game.scene.add('world', WorldScene, true, data);
     game.scene.add('wild', WildScene, false); // added after the world, so they draw on top
@@ -148,6 +154,16 @@ function applySelf(self) {
   setSelf(self);
   updateWallet(self);
 }
+
+// Follow the window: resizing, rotating a phone, entering fullscreen.
+function fitCanvas() {
+  if (!game) return;
+  const { width, height } = canvasSize();
+  if (width !== game.scale.width || height !== game.scale.height) game.scale.resize(width, height);
+}
+window.addEventListener('resize', fitCanvas);
+window.visualViewport?.addEventListener('resize', fitCanvas);
+document.addEventListener('fullscreenchange', () => setTimeout(fitCanvas, 50));
 
 function stopGame() {
   game?.destroy(true);

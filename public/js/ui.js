@@ -57,6 +57,11 @@ export function isModalOpen(id) {
   return openModals.includes(id);
 }
 
+/** The menu overlay on top, if any. */
+export function topModal() {
+  return openModals.at(-1) ?? null;
+}
+
 /** Close the most recent menu (Escape). Returns true if something closed. */
 export function closeTopModal() {
   const top = openModals.at(-1);

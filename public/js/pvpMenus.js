@@ -5,6 +5,7 @@
 import { SPECIES } from '/shared/mons.js';
 import { monImage } from './monArt.js';
 import { $, el, openModal, closeModal } from './ui.js';
+import { setModalActions } from './controls.js';
 
 /** @typedef {import('/shared/mons.js').Mon} Mon */
 
@@ -77,6 +78,11 @@ declineBtn.addEventListener('click', () => {
 withdrawBtn.addEventListener('click', () => {
   withdrawBtn.disabled = true;
   socket.emit('challengeWithdraw');
+});
+// A accepts; B declines (or takes back your own challenge).
+setModalActions('challenge', {
+  a: () => { if (!acceptBtn.hidden) acceptBtn.click(); },
+  b: () => (declineBtn.hidden ? withdrawBtn : declineBtn).click(),
 });
 
 // ---------------------------------------------------------------- ordering
@@ -219,6 +225,8 @@ function renderOrder() {
 lockBtn.addEventListener('click', () => {
   if (!lockBtn.disabled) sendOrder(true);
 });
+// A locks in; there's no backing out of a match, so B does nothing here.
+setModalActions('order', { a: () => lockBtn.click(), b: () => {} });
 
 // ---------------------------------------------------------------- result
 
@@ -247,6 +255,12 @@ export function showResult(r, onClose) {
   onResultClose = onClose;
   openModal('result');
 }
+
+// A or B: back to the world.
+setModalActions('result', {
+  a: () => /** @type {HTMLButtonElement} */ ($('result-close')).click(),
+  b: () => /** @type {HTMLButtonElement} */ ($('result-close')).click(),
+});
 
 $('result-close').addEventListener('click', () => {
   closeModal('result');

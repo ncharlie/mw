@@ -1,0 +1,12 @@
+{
+  "name": "MonWorld",
+  "short_name": "MonWorld",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#15161c",
+  "theme_color": "#15161c",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

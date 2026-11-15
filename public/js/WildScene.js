@@ -17,7 +17,7 @@ const POS = {
 
 export class WildScene extends BattleBase {
   constructor() {
-    super('wild', 'battle-msg');
+    super('wild', 'battle-panel', 'battle-msg');
   }
 
   /**
@@ -54,6 +54,8 @@ export class WildScene extends BattleBase {
     this.drawPartyDots();
 
     this.setupPanel();
+    this.fitCamera();
+    this.bindButtons('battle-throw', 'battle-run'); // A = throw a shackle, B = run
     this.events.once('shutdown', () => {
       $('battle-panel').hidden = true;
       $('help').hidden = false;

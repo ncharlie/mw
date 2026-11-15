@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <!-- Added to a home screen, the game opens fullscreen in landscape. -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#15161c">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <title>MonWorld</title>
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -17,7 +24,27 @@
     <span id="hud-shackles"></span>
     <button id="hud-party" type="button">Party (P)</button>
   </div>
-  <div id="help" hidden>Arrows / WASD: walk &nbsp;·&nbsp; tap to turn &nbsp;·&nbsp; E / Enter: interact &nbsp;·&nbsp; P: party &nbsp;·&nbsp; &minus; / + or wheel: zoom</div>
+  <div id="help" hidden>WASD: walk (tap to turn) &nbsp;·&nbsp; Space: A (talk, confirm) &nbsp;·&nbsp; Esc: B (back) &nbsp;·&nbsp; P: party &nbsp;·&nbsp; &minus; / + or wheel: zoom</div>
+
+  <!-- Touch controls (phones and tablets): joystick on the left, A / B on the right, party menu top right. -->
+  <div id="touch">
+    <div id="stick-zone">
+      <div id="stick"><div id="stick-knob"></div></div>
+    </div>
+    <div id="ab">
+      <button id="btn-b" type="button" aria-label="B: back">B</button>
+      <button id="btn-a" type="button" aria-label="A: talk or confirm">A</button>
+    </div>
+    <button id="btn-menu" type="button" aria-label="Party">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div id="rotate">
+    <div class="panel">
+      <div class="rotate-phone"></div>
+      <p>Turn your device sideways to play.</p>
+    </div>
+  </div>
 
   <div id="dialog" hidden>
     <p id="dialog-text"></p>
