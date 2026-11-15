@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MonWorld</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- The Phaser canvas goes in here. Menus are HTML overlays on top of it. -->
+  <div id="game"></div>
+
+  <div id="hud" hidden>
+    <span id="hud-name"></span>
+    <span id="hud-online"></span>
+    <span id="hud-coins"></span>
+    <span id="hud-shackles"></span>
+    <button id="hud-party" type="button">Party (P)</button>
+  </div>
+  <div id="help" hidden>Arrows / WASD: walk &nbsp;·&nbsp; tap to turn &nbsp;·&nbsp; E / Enter: interact &nbsp;·&nbsp; P: party &nbsp;·&nbsp; &minus; / + or wheel: zoom</div>
+
+  <div id="dialog" hidden>
+    <p id="dialog-text"></p>
+    <span class="dialog-next">&#9660;</span>
+  </div>
+
+  <!-- Wild battle buttons; the battle itself is drawn by Phaser. -->
+  <div id="battle-panel" hidden>
+    <p id="battle-msg"></p>
+    <div class="battle-buttons">
+      <button id="battle-throw" type="button">Throw Shackle</button>
+      <button id="battle-run" type="button" class="secondary">Run</button>
+    </div>
+  </div>
+
+  <div id="starter" class="overlay" hidden>
+    <div class="panel wide">
+      <h2>Choose your first Mon</h2>
+      <p class="note">Each one is strong against one other species. You can catch the rest later.</p>
+      <div id="starter-list" class="starter-list"></div>
+      <div class="actions">
+        <button id="starter-confirm" type="button" disabled>Pick one</button>
+      </div>
+      <p id="starter-error" class="error"></p>
+    </div>
+  </div>
+
+  <div id="shop" class="overlay" hidden>
+    <div class="panel">
+      <h2>Shop</h2>
+      <div class="shop-item">
+        <span id="shop-icon"></span>
+        <div><b>Shackle</b> · <span id="shop-price"></span> coins each<br>
+          <small>Throw it at a hurt wild Mon to catch it.</small></div>
+      </div>
+      <div class="shop-buy">
+        <button id="shop-less" type="button" class="secondary small">&minus;</button>
+        <input id="shop-qty" type="number" min="1" max="99" value="1" aria-label="How many">
+        <button id="shop-more" type="button" class="secondary small">+</button>
+        <span id="shop-total"></span>
+      </div>
+      <p id="shop-wallet" class="note"></p>
+      <div class="actions">
+        <button id="shop-buy" type="button">Buy</button>
+        <button id="shop-close" type="button" class="secondary">Close (Esc)</button>
+      </div>
+      <p id="shop-status" class="note"></p>
+    </div>
+  </div>
+
+  <div id="party" class="overlay" hidden>
+    <div class="panel wide">
+      <h2>Party</h2>
+      <p class="note">Slot 1 leads. Click one Mon, then another, to swap them (also between party and storage).</p>
+      <div id="party-list" class="mon-list"></div>
+      <h3 id="storage-title">Storage</h3>
+      <div id="storage-list" class="mon-list storage"></div>
+      <p id="party-error" class="error"></p>
+      <div class="actions">
+        <button id="party-close" type="button" class="secondary">Close (Esc)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PvP: challenge prompt (incoming or waiting), ordering screen, replay controls, result. -->
+  <div id="challenge" class="overlay" hidden>
+    <div class="panel">
+      <h2 id="challenge-title"></h2>
+      <p id="challenge-text" class="note"></p>
+      <div class="actions">
+        <button id="challenge-decline" type="button" class="secondary">Decline</button>
+        <button id="challenge-accept" type="button">Accept</button>
+        <button id="challenge-withdraw" type="button" class="secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="order" class="overlay" hidden>
+    <div class="panel wide">
+      <div class="order-head">
+        <h2 id="order-title"></h2>
+        <span id="order-timer" class="timer"></span>
+      </div>
+      <p id="order-note" class="note"></p>
+      <h3>Opponent's party <small>(their order is hidden)</small></h3>
+      <div id="order-opponent" class="species-row"></div>
+      <h3>Your lineup</h3>
+      <div id="order-slots" class="order-slots"></div>
+      <h3>Your party <small>(click to add or remove)</small></h3>
+      <div id="order-party" class="mon-list"></div>
+      <div class="actions">
+        <span id="order-status" class="order-status"></span>
+        <button id="order-lock" type="button">Lock in</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="replay-panel" hidden>
+    <p id="replay-msg"></p>
+    <div class="battle-buttons">
+      <button id="replay-speed" type="button" class="secondary">Speed &times;1</button>
+      <button id="replay-skip" type="button" class="secondary">Skip</button>
+    </div>
+  </div>
+
+  <div id="result" class="overlay" hidden>
+    <div class="panel">
+      <h2 id="result-title"></h2>
+      <p id="result-score" class="result-score"></p>
+      <ol id="result-pairs" class="result-pairs"></ol>
+      <p id="result-wins" class="note"></p>
+      <div class="actions">
+        <button id="result-close" type="button">Back to the world</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="login" class="overlay" hidden>
+    <form id="login-form" class="panel">
+      <h1>MonWorld</h1>
+      <label>Username <input id="login-user" autocomplete="username" required></label>
+      <label>Password <input id="login-pass" type="password" autocomplete="current-password" required></label>
+      <button type="submit">Log in</button>
+      <p id="login-error" class="error"></p>
+    </form>
+  </div>
+
+  <script src="/vendor/phaser.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

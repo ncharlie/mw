@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MonWorld Battle Lab</title>
+  <style>
+    :root {
+      --bg: #15161c;
+      --panel: #f7f3e6;
+      --edge: #2b2a33;
+      --muted: #6b6878;
+      --a: #3f7fd9;
+      --b: #d9573f;
+      --good: #3aa457;
+      font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: #22202a; }
+    main { max-width: 980px; margin: 0 auto; padding: 24px 16px 60px; display: grid; gap: 20px; }
+    h1 { color: white; margin: 0; letter-spacing: 1px; }
+    h1 small { font-size: 14px; color: #a9a6b5; font-weight: normal; margin-left: 8px; }
+    section { background: var(--panel); border: 4px solid var(--edge); border-radius: 10px; padding: 16px 18px; }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+    p.note { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; }
+    th, td { padding: 4px 8px; text-align: center; border-bottom: 1px solid #ddd6c2; }
+    th { font-size: 12px; text-transform: uppercase; color: var(--muted); }
+    td.left, th.left { text-align: left; }
+    .mon-img { vertical-align: middle; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    label { font-size: 14px; font-weight: bold; display: flex; gap: 6px; align-items: center; }
+    input, select { font: inherit; padding: 5px 8px; border: 2px solid var(--edge); border-radius: 6px; width: 7em; }
+    button { font: inherit; font-weight: bold; padding: 7px 12px; border: 2px solid var(--edge); border-radius: 6px; background: var(--a); color: white; cursor: pointer; }
+    button.secondary { background: white; color: var(--edge); }
+    .teams { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .team h3 { margin: 0 0 6px; font-size: 15px; }
+    .team.a h3 { color: var(--a); }
+    .team.b h3 { color: var(--b); }
+    .mon-card { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 2px 0; }
+    .mon-card b { display: inline-block; min-width: 3.5em; }
+    .score { font-size: 22px; font-weight: bold; margin: 14px 0 8px; }
+    details { border-top: 1px solid #ddd6c2; padding: 6px 0; }
+    summary { cursor: pointer; font-weight: bold; font-size: 14px; }
+    ol.log { margin: 6px 0 0; padding-left: 26px; font-size: 13px; font-family: ui-monospace, monospace; }
+    .sa { color: var(--a); font-weight: bold; }
+    .sb { color: var(--b); font-weight: bold; }
+    .strong { color: var(--good); font-weight: bold; }
+    td.heat { font-weight: bold; }
+    @media (max-width: 640px) { .teams { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Battle Lab <small>dev tool for tuning shared/mons.js and shared/battle.js</small></h1>
+
+    <section>
+      <h2>Species</h2>
+      <p class="note">Base stats. Every Mon rolls each stat &plusmn;10% when it spawns. Advantage deals 1.5&times; damage.</p>
+      <table id="species"></table>
+    </section>
+
+    <section>
+      <h2>Match simulator</h2>
+      <p class="note">Runs the same code the server will use for PvP and bot matches. Same team seed and fight seed always give the same result.</p>
+      <div class="row">
+        <label>Mons per team <select id="team-size"></select></label>
+        <label>Team seed <input id="team-seed" type="number"></label>
+        <label>Fight seed <input id="fight-seed" type="number"></label>
+        <button id="new-teams" class="secondary">New random teams</button>
+        <button id="new-fight" class="secondary">New fight seed</button>
+      </div>
+      <div class="teams">
+        <div class="team a"><h3>Team A</h3><div id="team-a"></div></div>
+        <div class="team b"><h3>Team B</h3><div id="team-b"></div></div>
+      </div>
+      <div id="result"></div>
+    </section>
+
+    <section>
+      <h2>Balance check</h2>
+      <p class="note">Win rate of the row species against the column species over many 1v1 fights with freshly rolled stats.</p>
+      <div class="row">
+        <label>Fights per matchup <input id="balance-count" type="number" value="1000" min="10" max="20000"></label>
+        <button id="run-balance">Run</button>
+      </div>
+      <table id="balance"></table>
+    </section>
+  </main>
+  <script type="module" src="/js/lab.js"></script>
+</body>
+</html>
