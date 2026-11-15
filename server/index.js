@@ -12,7 +12,7 @@ import * as store from "./store.js";
 import { attachGame } from "./game.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 3100;
 const require = createRequire(import.meta.url);
 
 const userCount = await loadUsers(path.join(ROOT, "server", "users.json"));
